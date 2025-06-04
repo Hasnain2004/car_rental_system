@@ -8,6 +8,7 @@ from django.utils import timezone
 from datetime import datetime
 from social_django.utils import load_strategy, load_backend
 from social_core.exceptions import AuthAlreadyAssociated, AuthException
+from django.urls import reverse
 
 def home(request):
     # This will serve as a landing page for all users
@@ -54,23 +55,42 @@ def login_view(request):
         return redirect('home')
         
     if request.method == 'POST':
-        email = request.POST.get('email')
-        password = request.POST.get('password')
-        
         try:
-            # Get user by email
-            user = User.objects.get(email=email)
-            # Authenticate with username and password
-            user = authenticate(request, username=user.username, password=password)
+            email = request.POST.get('email')
+            password = request.POST.get('password')
             
-            if user is not None:
-                login(request, user)
-                messages.success(request, f'Welcome back, {user.username}!')
-                return redirect('home')
-            else:
-                messages.error(request, 'Invalid email or password.')
-        except User.DoesNotExist:
-            messages.error(request, 'Invalid email or password.')
+            try:
+                # Get user by email
+                user = User.objects.get(email=email)
+                # Authenticate with username and password
+                authenticated_user = authenticate(
+                    request, 
+                    username=user.username, 
+                    password=password
+                )
+                
+                if authenticated_user is not None:
+                    login(request, authenticated_user)
+                    return JsonResponse({
+                        'success': True,
+                        'redirect_url': reverse('home')
+                    })
+                else:
+                    return JsonResponse({
+                        'success': False,
+                        'error': 'Invalid email or password.'
+                    })
+            except User.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No account found with this email.'
+                })
+        except Exception as e:
+            print(f"Login error: {str(e)}")  # Add debugging
+            return JsonResponse({
+                'success': False,
+                'error': 'An error occurred during login. Please try again.'
+            })
     
     return render(request, 'login.html')
 
@@ -113,8 +133,12 @@ def signup(request):
                 user.save()
             
             # Log the user in
-            login(request, user)
-            return JsonResponse({'success': True})
+            user = authenticate(request, username=username, password=password)
+            if user is not None:
+                login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+                return JsonResponse({'success': True})
+            else:
+                return JsonResponse({'success': False, 'error': 'Failed to authenticate user after creation.'})
             
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
