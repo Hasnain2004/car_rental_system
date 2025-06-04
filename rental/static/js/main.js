@@ -65,6 +65,12 @@ function handleLoginForm(event) {
   const form = event.target;
   const formData = new FormData(form);
 
+  // Clear any existing error messages
+  const errorDiv = form.querySelector(".error-message");
+  if (errorDiv) {
+    errorDiv.remove();
+  }
+
   fetch(form.action, {
     method: "POST",
     body: formData,
@@ -75,14 +81,22 @@ function handleLoginForm(event) {
     .then((response) => response.json())
     .then((data) => {
       if (data.success) {
-        window.location.href = "/";
+        window.location.href = data.redirect_url;
       } else {
-        alert(data.error || "Invalid username or password.");
+        // Create and show error message
+        const errorDiv = document.createElement("div");
+        errorDiv.className = "error-message alert alert-danger";
+        errorDiv.textContent = data.error || "An error occurred during login.";
+        form.insertBefore(errorDiv, form.firstChild);
       }
     })
     .catch((error) => {
       console.error("Error:", error);
-      alert("An error occurred. Please try again.");
+      // Create and show error message
+      const errorDiv = document.createElement("div");
+      errorDiv.className = "error-message alert alert-danger";
+      errorDiv.textContent = "An error occurred. Please try again.";
+      form.insertBefore(errorDiv, form.firstChild);
     });
 }
 
